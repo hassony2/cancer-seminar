@@ -69,7 +69,7 @@ def extract_all_patches(main_folder_path, patch_size):
     """
     Extract patches for all patients
     """
-    file_struct = os.walk(main_directory)
+    file_struct = os.walk(main_folder_path)
     directories = []
     files = []
     patient_patches = {}
