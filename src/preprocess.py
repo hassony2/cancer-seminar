@@ -65,6 +65,75 @@ def extract_all_patient_patches(patient_path, patch_size, display=False):
     return all_patches
 
 
+def extract_all_patient_tumors(patient_path, margin, display=False):
+    """Extract all tumors patches given a margin for a patient"""
+    # Main file with segmentation is either str.dcm, STR.DCM, or /Str.dcm
+    if os.path.isfile(patient_path + '/STR.DCM'):
+        str_path = patient_path + '/STR.DCM'
+    elif (os.path.isfile(patient_path + '/Str.dcm')):
+        str_path = patient_path + '/Str.dcm'
+    else:
+        str_path = patient_path + '/str.dcm'
+    segment_dicom = dicom.read_file(str_path)
+    tumor_index = get_tumor_index(segment_dicom)
+    nb_image = len(segment_dicom[roi_contour_tag][
+                   tumor_index][contour_sequence_tag].value)
+    all_patches = []
+    # Go through all images that are referenced in the segmentation
+    # for each image, extract all the patches that match the requirements
+    for image_index in range(nb_image):
+        dicom_name = get_tumor_image_name(segment_dicom, image_index)
+        ct_file = patient_path + '/' + 'CT' + dicom_name + '.dcm'
+        dicom_image = get_dicom_image(ct_file)
+        dicom_content = dicom.read_file(ct_file)
+        # Get patient position and spacing between pixels
+        patient_position = dicom_content.ImagePositionPatient
+        patient_position = [float(position) for position in patient_position]
+        ox, oy, oz = patient_position
+
+        # Get patient spacing between pixels
+        patient_spacings = dicom_content.PixelSpacing
+        patient_spacings = [float(space) for space in patient_spacings]
+        sx, sy = patient_spacings
+
+        # transform contour coordinates according to patient data
+        x_coords, y_coords = get_tumor_segmentation(segment_dicom, image_index)
+        x_coords = np.asarray([(pos - ox) / sx for pos in x_coords])
+        y_coords = np.asarray([(pos - oy) / sy for pos in y_coords])
+
+        # Display segmentation
+        if(display):
+            plt.imshow(dicom_image, cmap='gray')
+            plt.plot(x_coords, y_coords)
+            plt.show()
+
+        # Extract patches
+        mask = poly2mask_(x_coords, y_coords, (512, 512)) 
+        tumor_patch = extract_tumor_from_mask_(mask, dicom_image, margin)
+    return tumor_patch
+
+
+def extract_all_tumors(main_folder_path, margin):
+     """
+    Extract tumors for all patients
+    """
+    file_struct = os.walk(main_folder_path)
+    directories = []
+    files = []
+    patient_patches = {}
+    for directory in file_struct:
+        directories.append(directory[0])
+
+    directories = directories[1:]
+    for patient_dir in directories:
+        patient_id = int(patient_dir.split('_')[1])
+        try:
+            patient_patches[patient_id] = extract_all_patient_tumors(patient_path, margin)
+        except KeyError:
+            pass
+    return patient_patches
+
+
 def extract_all_patches(main_folder_path, patch_size):
     """
     Extract patches for all patients
@@ -163,6 +232,18 @@ def poly2mask_(vertex_row_coords, vertex_col_coords, shape):
     mask = np.zeros(shape, dtype=np.bool)
     mask[fill_row_coords, fill_col_coords] = True
     return mask
+
+
+def extract_tumor_from_image_(mask, image, margin):
+    """
+    Extracts the smallest rectangle containing the tumor + margin on the 4 sides  
+    """
+    mask_coords_x, mask_coords_y = np.nonzero(mask)
+    left = np.min(mask_coords_x)
+    right = np.max(mask_coords_x)
+    up = np.min(mask_coords_y)
+    down = np.max(mask_coords_y)
+    return image[np.ix_(range(left, right), range(up, down))]
 
 
 def extract_from_mask_(mask, size, stride):
