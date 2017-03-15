@@ -52,6 +52,7 @@ def extract_all_patient_patches(patient_path, patch_size, display=False):
         if(display):
             plt.imshow(dicom_image, cmap='gray')
             plt.plot(x_coords, y_coords)
+            plt.axis('off')
             plt.show()
 
         # Extract patches
@@ -87,7 +88,7 @@ def extract_all_patches(main_folder_path, patch_size):
     return patient_patches
 
 
-def get_case_index(case_number):
+def get_case_index(main_directory, directories, case_number):
     """Takes the number of the case and returns the corresponding index
     to retrieve the info in directories and files"""
     return directories.index(main_directory + '/Case_' + str(case_number))
