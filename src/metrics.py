@@ -1,3 +1,5 @@
+import numpy as np
+
 def get_metrics(target, prediction):
     # assert(len(target) == len(prediction), 'target and prediction lists should be of same length')
     sample_nb = len(target)
