@@ -31,42 +31,46 @@ def extract_all_patient_patches(patient_path, patch_size, display=False):
     for image_index in range(nb_image):
         dicom_name = get_tumor_image_name(segment_dicom, image_index)
         ct_file = patient_path + '/' + 'CT' + dicom_name + '.dcm'
-        dicom_image = get_dicom_image(ct_file)
-        dicom_content = dicom.read_file(ct_file)
-        # Get patient position and spacing between pixels
-        patient_position = dicom_content.ImagePositionPatient
-        patient_position = [float(position) for position in patient_position]
-        ox, oy, oz = patient_position
+        # TODO : find how come the file mentionned in segmentation not present in case
+        try:
+            dicom_image = get_dicom_image(ct_file)
+            dicom_content = dicom.read_file(ct_file)
+            # Get patient position and spacing between pixels
+            patient_position = dicom_content.ImagePositionPatient
+            patient_position = [float(position) for position in patient_position]
+            ox, oy, oz = patient_position
 
-        # Get patient spacing between pixels
-        patient_spacings = dicom_content.PixelSpacing
-        patient_spacings = [float(space) for space in patient_spacings]
-        sx, sy = patient_spacings
+            # Get patient spacing between pixels
+            patient_spacings = dicom_content.PixelSpacing
+            patient_spacings = [float(space) for space in patient_spacings]
+            sx, sy = patient_spacings
 
-        # transform contour coordinates according to patient data
-        x_coords, y_coords = get_tumor_segmentation(segment_dicom, image_index)
-        x_coords = np.asarray([(pos - ox) / sx for pos in x_coords])
-        y_coords = np.asarray([(pos - oy) / sy for pos in y_coords])
+            # transform contour coordinates according to patient data
+            x_coords, y_coords = get_tumor_segmentation(segment_dicom, image_index)
+            x_coords = np.asarray([(pos - ox) / sx for pos in x_coords])
+            y_coords = np.asarray([(pos - oy) / sy for pos in y_coords])
 
-        # Display segmentation
-        if(display):
-            plt.imshow(dicom_image, cmap='gray')
-            plt.plot(x_coords, y_coords)
-            plt.axis('off')
-            plt.show()
+            # Display segmentation
+            if(display):
+                plt.imshow(dicom_image, cmap='gray')
+                plt.plot(x_coords, y_coords)
+                plt.axis('off')
+                plt.show()
 
-        # Extract patches
-        image_patches = extract_from_image(
-            dicom_image, x_coords, y_coords, patch_size, 1)
-        if (np.shape(image_patches)[0] > 0):
-            if (len(all_patches) == 0):
-                all_patches = np.copy(image_patches)
-            else:
-                all_patches = np.concatenate((all_patches, image_patches))
+            # Extract patches
+            image_patches = extract_from_image(
+                dicom_image, x_coords, y_coords, patch_size, 1)
+            if (np.shape(image_patches)[0] > 0):
+                if (len(all_patches) == 0):
+                    all_patches = np.copy(image_patches)
+                else:
+                    all_patches = np.concatenate((all_patches, image_patches))
+        except(FileNotFoundError):
+            print('file', ct_file, 'not found!')
     return all_patches
 
 
-def extract_all_patches(main_folder_path, patch_size):
+def extract_all_patches(main_folder_path, patch_size, display=False):
     """
     Extract patches for all patients
     """
@@ -80,6 +84,8 @@ def extract_all_patches(main_folder_path, patch_size):
     directories = directories[1:]
     for patient_dir in directories:
         patient_id = int(patient_dir.split('_')[1])
+        if(display):
+            print(patient_id)
         try:
             patient_patches[patient_id] = extract_all_patient_patches(
                 patient_dir, patch_size)
