@@ -31,4 +31,8 @@ def get_patients_by_rec(df, patient_list, patient_patches, hpv_status):
                 patients.append(patient)
     return patients
 
-
+def get_hpv_status_dic(df):
+    hpv_dic = {}
+    for patient_id in list(df.Patient_ID):
+        hpv_dic[patient_id] = get_hpv_status(df, patient_id)
+    return hpv_dic
